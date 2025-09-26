@@ -5,7 +5,7 @@ set -exo pipefail
 IW2SRC="$1"
 export BUILD_MODE="${2:-release}"
 ACTION="${3:-local}"
-TAG="${4:-$(date +'%Y%m&d')}"
+TAG="${4:-$(date +'%Y%m%d')}"
 
 if [ -z "$IW2SRC" ]; then
 	cat <<EOF >&2

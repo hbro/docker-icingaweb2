@@ -11,11 +11,29 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # This is CRITICAL for the GITHUB_TOKEN to push to GHCR
       packages: write
 
     steps:
       - name: Checkout HEAD
-        uses: actions/checkout@v1
+        # Use a built-in cache for the Git repository checkout
+        uses: actions/checkout@v4
+        with:
+          # Enabling 'cache: true' significantly speeds up checkout for large repos
+          # by caching git history and working directory.
+          cache: true
+
+      # Calculate the GHCR image name and tag
+      - name: Set Image Tag Variables
+        id: vars
+        run: |
+          # GHCR requires the repository owner/name to be lowercase.
+          # ${{ github.repository }} is like "Hbro/docker-icingaweb2".
+          # We force it to lowercase for the GHCR path.
+          IMAGE_PATH_LOWERCASE="ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')"
+          DATE_TAG="$(date +'%Y%m%d')"
+          echo "IMAGE_NAME=$IMAGE_PATH_LOWERCASE" >> $GITHUB_OUTPUT
+          echo "TAG=$DATE_TAG" >> $GITHUB_OUTPUT
 
       - shell: bash
         run: sudo apt-get update
@@ -23,7 +41,13 @@ jobs:
       - name: QEMU
         run: sudo apt-get install -y qemu-user-static binfmt-support
 
-      - run: docker buildx create --use
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          # Set up the Docker Buildx cache backend to use GitHub Actions' cache service.
+          # This caches the built image layers, making subsequent 'docker buildx' calls much faster.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -32,8 +56,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The Icinga Web 2 clone step can't be directly cached with actions/cache
+      # because the repository is *cloned* not just a set of *dependencies*.
+      # However, the checkout caching above and buildx caching below will provide the primary speed boosts.
       - name: Icinga Web 2
-        run: git clone https://github.com/Icinga/icingaweb2.git
+        run: git clone --depth 1 https://github.com/Icinga/icingaweb2.git
 
-      - name: Build and Push
-        run: ./build.bash ./icingaweb2 release push ghcr.io/hbro/icingaweb2
+      - name: Build and Push to GHCR
+        # Pass the full image name (4th arg) and the date tag (5th arg)
+        run: ./build.bash ./icingaweb2 release push ${{ steps.vars.outputs.IMAGE_NAME }} ${{ steps.vars.outputs.TAG }}

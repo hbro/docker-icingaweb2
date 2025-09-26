@@ -9,6 +9,9 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout HEAD
@@ -22,8 +25,15 @@ jobs:
 
       - run: docker buildx create --use
 
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Icinga Web 2
         run: git clone https://github.com/Icinga/icingaweb2.git
 
-      - name: Build
-        run: ./build.bash ./icingaweb2 release all
+      - name: Build and Push
+        run: ./build.bash ./icingaweb2 release push ghcr.io/hbro/icingaweb2

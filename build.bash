@@ -5,11 +5,13 @@ set -exo pipefail
 IW2SRC="$1"
 export BUILD_MODE="${2:-release}"
 ACTION="${3:-local}"
-TAG="${4:-$(date +'%Y%m%d')}"
+IMAGE="${4:-docker.io/icinga/icingaweb2}"
+TAG="${5:-$(date +'%Y%m%d')}"
 
 if [ -z "$IW2SRC" ]; then
 	cat <<EOF >&2
-Usage: ${0} /icingaweb2/source/dir [release|snapshot [local|all|push [TAG]]]
+Usage: ${0} /icingaweb2/source/dir [release|snapshot [local|all|push [IMAGE] [TAG]]]
+Defaults: release local docker.io/icinga/icingaweb2 \$DATE
 EOF
 
 	false
@@ -26,7 +28,7 @@ if ! docker buildx version; then
 fi
 
 OUR_DIR="$(realpath "$(dirname "$0")")"
-COMMON_ARGS=(-t "icinga/icingaweb2:$TAG" --build-context "icingaweb2-git=$(realpath "$IW2SRC")/.git/" --build-arg "BUILD_MODE=$BUILD_MODE" "$OUR_DIR")
+COMMON_ARGS=(-t "$IMAGE:$TAG" --build-context "icingaweb2-git=$(realpath "$IW2SRC")/.git/" --build-arg "BUILD_MODE=$BUILD_MODE" "$OUR_DIR")
 BUILDX=(docker buildx build --platform "$(cat "${OUR_DIR}/platforms.txt")")
 
 case "$ACTION" in

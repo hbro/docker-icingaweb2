@@ -1,10 +1,9 @@
 name: Build
 
 on:
-  push:
-    branches:
-      - master
-  pull_request: {}
+  schedule:
+    - cron: '0 0 * * SUN' # Runs every Sunday at 00:00 UTC
+  workflow_dispatch:
 
 jobs:
   build:
